@@ -19,17 +19,13 @@ class VideoPlayer:
         self.frames = None
         self.lower_color = 0
         self.upper_color = 255
+        self.get_channel = False
 
         self.vid = None
         self.photo = None
         self.next = '1'
 
-        # menu_def = [['&File', ['&Open', '&Save', '---', 'Properties', 'E&xit']],
-        #            ['&Edit', ['Paste', ['Special', 'Normal', ], 'Undo'],],
-        #            ['&Help', '&About...']]
-
         layout = [
-            # [sg.Menu(menu_def)],
              [sg.Text('Select video')], [sg.Input(key='-FILEPATH-'), sg.Button('Browse')],
              [sg.Canvas(size=(500, 300), key='canvas', background_color='white', border_width=1)],
              [sg.Slider(size=(30, 20), range=(0, 100), resolution=1, key='slider', orientation='h', 
@@ -45,7 +41,8 @@ class VideoPlayer:
              sg.Text('ms'),
              sg.VSeperator(),
              sg.Radio('3D: Intensity/time/width', 'SELECT_TYPE_OF_GRAPH',  key='-3D_INT-')],
-             [sg.Button('Convert video to graph', enable_events=True, key='-PROCESSING_VIDEO-', font='Helvetica 16')]]
+             [sg.Button('Get channel', enable_events=True, key='-GET_CHANNEL-', font='Helvetica 16'),
+             sg.Button('Convert video to graph', enable_events=True, key='-PROCESSING_VIDEO-', font='Helvetica 16')]]
 
         self.window = sg.Window('Videoplayer', layout).Finalize()
 
@@ -99,6 +96,10 @@ class VideoPlayer:
             if event == 'slider':
                 self.set_frame(int(values['slider']))
 
+            if values['-LOWER-'] or values['-UPPER-']:
+                if not self.play:
+                        self.set_frame(self.frame)
+
             if event == 'Mask':
                 if not self.mask:
                     self.mask = True
@@ -108,6 +109,16 @@ class VideoPlayer:
                 else:
                     self.mask = False
                     self.window.Element('Mask').Update('Mask')
+                    if not self.play:
+                        self.set_frame(self.frame)
+
+            if event == '-GET_CHANNEL-':
+                if not self.get_channel:
+                    self.get_channel = True
+                    if not self.play:
+                        self.set_frame(self.frame)
+                else:
+                    self.get_channel = False
                     if not self.play:
                         self.set_frame(self.frame)
 
@@ -128,7 +139,7 @@ class VideoPlayer:
         if self.vid:
             if self.play:
 
-                ret, frame = self.vid.get_frame(self.mask, self.lower_color, self.upper_color)
+                ret, frame = self.vid.get_frame(self.mask, self.lower_color, self.upper_color, self.get_channel)
 
                 if ret:
                     self.photo = PIL.ImageTk.PhotoImage(
@@ -173,7 +184,7 @@ class MyVideoCapture:
         self.frames = self.vid.get(cv2.CAP_PROP_FRAME_COUNT)
         self.fps = self.vid.get(cv2.CAP_PROP_FPS)
 
-    def get_frame(self, mask, lower, upper):
+    def get_frame(self, mask, lower, upper, get_channel):
 
         if self.vid.isOpened():
             ret, frame = self.vid.read()
@@ -182,6 +193,8 @@ class MyVideoCapture:
                 if mask:
                     mask = cv2.inRange(frame, lower, upper)
                     frame = cv2.bitwise_and(frame, frame, mask=mask)
+                if get_channel:
+                    cv2.rectangle(frame, (0, 0), (100, 100), 255, 1)
                 return ret, frame
             else:
                 return ret, None
