@@ -17,13 +17,18 @@ class VideoPlayer:
         self.delay = 0.023
         self.frame = 1
         self.frames = None
-        self.lower_color = 0
-        self.upper_color = 255
         self.get_channel = False
 
         self.vid = None
         self.photo = None
         self.next = '1'
+
+        self.extended_properties = {
+            'lower_color': 0,
+            'upper_color': 255,
+            'mask': False,
+            'get_channel': False
+        }
 
         layout = [
              [sg.Text('Select video')], [sg.Input(key='-FILEPATH-'), sg.Button('Browse')],
@@ -65,7 +70,7 @@ class VideoPlayer:
 
                 if video_path:
 
-                    self.vid = MyVideoCapture(video_path)
+                    self.vid = MyVideoCapture(video_path, self.extended_properties)
 
 #Need add scale
                     self.vid_width = int(self.vid.width * 0.6)
@@ -101,29 +106,29 @@ class VideoPlayer:
                         self.set_frame(self.frame)
 
             if event == 'Mask':
-                if not self.mask:
-                    self.mask = True
+                if not self.extended_properties['mask']:
+                    self.extended_properties['mask'] = True
                     self.window.Element('Mask').Update('Unmask')
                     if not self.play:
                         self.set_frame(self.frame)
                 else:
-                    self.mask = False
+                    self.extended_properties['mask'] = False
                     self.window.Element('Mask').Update('Mask')
                     if not self.play:
                         self.set_frame(self.frame)
 
             if event == '-GET_CHANNEL-':
-                if not self.get_channel:
-                    self.get_channel = True
+                if not self.extended_properties['get_channel']:
+                    self.extended_properties['get_channel'] = True
                     if not self.play:
                         self.set_frame(self.frame)
                 else:
-                    self.get_channel = False
+                    self.extended_properties['get_channel'] = False
                     if not self.play:
                         self.set_frame(self.frame)
 
-            self.lower_color = int(values['-LOWER-'])
-            self.upper_color = int(values['-UPPER-'])
+            self.extended_properties['lower_color'] = int(values['-LOWER-'])
+            self.extended_properties['upper_color'] = int(values['-UPPER-'])
 
         self.window.close()
         sys.exit
@@ -139,7 +144,7 @@ class VideoPlayer:
         if self.vid:
             if self.play:
 
-                ret, frame = self.vid.get_frame(self.mask, self.lower_color, self.upper_color, self.get_channel)
+                ret, frame = self.vid.get_frame()
 
                 if ret:
                     self.photo = PIL.ImageTk.PhotoImage(
@@ -155,7 +160,7 @@ class VideoPlayer:
 
         if self.vid:
 
-            ret, frame = self.vid.goto_frame(frame_no, self.mask, self.lower_color, self.upper_color)
+            ret, frame = self.vid.goto_frame(frame_no)
             self.frame = frame_no
             self.update_counter(self.frame)
 
@@ -173,7 +178,7 @@ class VideoPlayer:
 
 class MyVideoCapture:
 
-    def __init__(self, video_source):
+    def __init__(self, video_source, extended_properties):
         
         self.vid = cv2.VideoCapture(video_source)
         if not self.vid.isOpened():
@@ -184,16 +189,18 @@ class MyVideoCapture:
         self.frames = self.vid.get(cv2.CAP_PROP_FRAME_COUNT)
         self.fps = self.vid.get(cv2.CAP_PROP_FPS)
 
-    def get_frame(self, mask, lower, upper, get_channel):
+        self.extended_properties = extended_properties
+
+    def get_frame(self):
 
         if self.vid.isOpened():
             ret, frame = self.vid.read()
             if ret:
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-                if mask:
-                    mask = cv2.inRange(frame, lower, upper)
+                if self.extended_properties['mask']:
+                    mask = cv2.inRange(frame, self.extended_properties['lower_color'], self.extended_properties['upper_color'])
                     frame = cv2.bitwise_and(frame, frame, mask=mask)
-                if get_channel:
+                if self.extended_properties['get_channel']:
                     cv2.rectangle(frame, (0, 0), (100, 100), 255, 1)
                 return ret, frame
             else:
@@ -201,15 +208,15 @@ class MyVideoCapture:
         else:
             return 0, None
 
-    def goto_frame(self, frame_no, mask, lower, upper):
+    def goto_frame(self, frame_no):
 
         if self.vid.isOpened():
             self.vid.set(cv2.CAP_PROP_POS_FRAMES, frame_no)
             ret, frame = self.vid.read()
             if ret:
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-                if mask:
-                    mask = cv2.inRange(frame, lower, upper)
+                if self.extended_properties['mask']:
+                    mask = cv2.inRange(frame, self.extended_properties['lower_color'], self.extended_properties['upper_color'])
                     frame = cv2.bitwise_and(frame, frame, mask=mask)
                 return ret, frame
             else:
