@@ -7,6 +7,9 @@ import tkinter as tk
 import sys
 import threading
 import time
+import matplotlib.pyplot as plt
+from matplotlib import cm
+from matplotlib.ticker import LinearLocator, FormatStrFormatter
 
 class VideoPlayer:
 
@@ -38,10 +41,10 @@ class VideoPlayer:
 
         layout = [
              [sg.Text('Select video')], [sg.Input(key='-FILEPATH-'), sg.Button('Browse')],
-             [sg.Canvas(size=(500, 300), key='canvas', background_color='white', border_width=1)],
-             [sg.Slider(size=(30, 20), range=(0, 100), resolution=1, key='slider', orientation='h', 
-             enable_events=True), sg.T('0', key='counter', size=(10, 1))],
-             [sg.Button('Next frame'), sg.Button('Pause', key='Play'), sg.Button('Mask', key='Mask'),
+             [sg.Canvas(size=(700, 200), key='-CANVAS-', background_color='white', border_width=1)],
+             [sg.Slider(size=(30, 20), range=(0, 100), resolution=1, key='-FRAMES-', orientation='h', 
+             enable_events=True), sg.T('0', key='-FRAMES_COUNTER-', size=(10, 1))],
+             [sg.Button('Next frame'), sg.Button('Pause', key='Play'), sg.Button('Mask', key='-MASK-'),
              sg.Button('Exit')],
              [sg.Slider(size=(30, 20), range=(0, 255), default_value = 0, resolution=1, key='-LOWER-', orientation='h', enable_events=True), 
             sg.Slider(size=(30, 20), range=(0, 255), default_value = 255, resolution=1, key='-UPPER-', orientation='h', enable_events=True)],
@@ -61,7 +64,7 @@ class VideoPlayer:
 
         self.window = sg.Window('Videoplayer', layout).Finalize()
 
-        canvas = self.window.Element('canvas')
+        canvas = self.window.Element('-CANVAS-')
         self.canvas = canvas.TKCanvas
 
         self.load_video()
@@ -83,13 +86,13 @@ class VideoPlayer:
                     self.vid = MyVideoCapture(video_path, self.extended_properties)
 
 #Need add scale
-                    self.vid_width = int(self.vid.width * 0.6)
-                    self.vid_height = int(self.vid.height * 0.6)
+                    self.vid_width = int(self.vid.width / self.vid.height * 200)
+                    self.vid_height = 200
 
                     self.frames = int(self.vid.frames)
 
-                    self.window.Element('slider').Update(range=(0, int(self.frames)), value=0)
-                    self.window.Element('counter').Update('0/%i' % self.frames)
+                    self.window.Element('-FRAMES-').Update(range=(0, int(self.frames)), value=0)
+                    self.window.Element('-FRAMES_COUNTER-').Update('0/%i' % self.frames)
                     self.canvas.config(width=self.vid_width, height=self.vid_height)
 
                     self.window.Element('-LEFT-').Update(range=(0, int(self.vid.width)), value=0)
@@ -114,22 +117,22 @@ class VideoPlayer:
             if event == 'Next frame':
                 self.set_frame(self.frame + 1)
 
-            if event == 'slider':
-                self.set_frame(int(values['slider']))
+            if event == '-FRAMES-':
+                self.set_frame(int(values['-FRAMES-']))
 
             if values['-LOWER-'] or values['-UPPER-']:
                 if not self.play:
                         self.set_frame(self.frame)
 
-            if event == 'Mask':
+            if event == '-MASK-':
                 if not self.extended_properties['mask']:
                     self.extended_properties['mask'] = True
-                    self.window.Element('Mask').Update('Unmask')
+                    self.window.Element('-MASK-').Update('Unmask')
                     if not self.play:
                         self.set_frame(self.frame)
                 else:
                     self.extended_properties['mask'] = False
-                    self.window.Element('Mask').Update('Mask')
+                    self.window.Element('-MASK-').Update('Mask')
                     if not self.play:
                         self.set_frame(self.frame)
 
@@ -152,6 +155,13 @@ class VideoPlayer:
                     self.extended_properties['channel']['y1'] = int(values['-TOP-'])
                 if values['-BOTTOM-']:
                     self.extended_properties['channel']['y2'] = int(values['-BOTTOM-'])
+
+            if event == '-PROCESSING_VIDEO-' and values['-INT_T-'] == True:
+                GraphTime(self.extended_properties, video_path)
+            if event == '-PROCESSING_VIDEO-' and values['-INT_W-'] == True:
+                GraphWidth(self.extended_properties, video_path, values['-TIME-'])
+            if event == '-PROCESSING_VIDEO-' and values['-3D_INT-'] == True:
+                Graph3D(self.extended_properties, video_path)
 
             self.extended_properties['lower_color'] = int(values['-LOWER-'])
             self.extended_properties['upper_color'] = int(values['-UPPER-'])
@@ -198,8 +208,8 @@ class VideoPlayer:
 
     def update_counter(self, frame):
 
-        self.window.Element('slider').Update(value=frame)
-        self.window.Element('counter').Update('{}/{}'.format(frame, self.frames))
+        self.window.Element('-FRAMES-').Update(value=frame)
+        self.window.Element('-FRAMES_COUNTER-').Update('{}/{}'.format(frame, self.frames))
 
 
 class MyVideoCapture:
@@ -259,6 +269,171 @@ class MyVideoCapture:
     def __del__(self):
         if self.vid.isOpened():
             self.vid.release()
+
+class GraphTime:
+    def __init__(self, channel, video_source):
+        self.count_frame = 0
+        self.x1 = channel['channel']['x1']
+        self.x2 = channel['channel']['x2']
+        self.y1 = channel['channel']['y1']
+        self.y2 = channel['channel']['y2']
+        self.lower_color = channel['lower_color']
+        self.upper_color = channel['upper_color']
+        self.vid = cv2.VideoCapture(video_source)
+        self.data_graph = {
+            'time': None,
+            'width': None,
+            'intensity_time': [],
+            'intensity_width': None
+        }
+
+        while True:
+
+            ret, frame = self.vid.read()
+
+            if ret == False:
+                self.data_graph['time'] = np.arange(1, self.count_frame + 1, 1)
+                cv2.destroyWindow('Video')
+                break
+
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            frame = frame[self.y1 : self.y2, self.x1 : self.x2]
+            mask = cv2.inRange(frame, self.lower_color, self.upper_color)
+            frame = cv2.bitwise_and(frame, frame, mask=mask)
+
+            self.data_graph['intensity_time'].append(np.mean(frame))
+            self.count_frame += 1
+
+            cv2.imshow('Video', frame)
+
+            if cv2.waitKey(1) & 0xFF == 27:
+                cv2.destroyWindow('Video')
+                break
+
+        plt.plot(self.data_graph['time'], self.data_graph['intensity_time'])
+        plt.xlabel('Time')
+        plt.ylabel('Intensity')
+        plt.grid(True)
+        plt.legend(['Mean pixels intensity'])
+        plt.show()
+
+class GraphWidth:
+    def __init__(self, channel, video_source, time):
+        self.count_frame = 0
+        self.x1 = channel['channel']['x1']
+        self.x2 = channel['channel']['x2']
+        self.y1 = channel['channel']['y1']
+        self.y2 = channel['channel']['y2']
+        self.lower_color = channel['lower_color']
+        self.upper_color = channel['upper_color']
+        self.vid = cv2.VideoCapture(video_source)
+        self.data_graph = {
+            'time': None,
+            'width': None,
+            'intensity_time': [],
+            'intensity_width': []
+        }
+
+        while True:
+
+            ret, frame = self.vid.read()
+
+            if ret == False:
+                self.data_graph['time'] = np.arange(1, self.count_frame + 1, 1)
+                cv2.destroyWindow('Video')
+                break
+
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            frame = frame[self.y1 : self.y2, self.x1 : self.x2]
+            mask = cv2.inRange(frame, self.lower_color, self.upper_color)
+            frame = cv2.bitwise_and(frame, frame, mask=mask)
+
+            self.count_frame += 1
+
+            cv2.imshow('Video', frame)
+
+            if  self.count_frame == int(time):
+                self.data_graph['intensity_width'] = np.mean(frame, axis=0)
+                self.data_graph['width'] = np.arange(1, np.size(frame, 1) + 1, 1)
+                cv2.destroyWindow('Video')
+                break
+            if cv2.waitKey(1) & 0xFF == 27:
+                cv2.destroyWindow('Video')
+                break
+
+        plt.plot(self.data_graph['width'], self.data_graph['intensity_width'])
+        plt.xlabel('Time')
+        plt.ylabel('Intensity')
+        plt.grid(True)
+        plt.legend(['Mean pixels intensity'])
+        plt.show()
+
+class Graph3D:
+    def __init__(self, channel, video_source):
+        self.count_frame = 0
+        self.x1 = channel['channel']['x1']
+        self.x2 = channel['channel']['x2']
+        self.y1 = channel['channel']['y1']
+        self.y2 = channel['channel']['y2']
+        self.lower_color = channel['lower_color']
+        self.upper_color = channel['upper_color']
+        self.vid = cv2.VideoCapture(video_source)
+        self.data_graph = {
+            'time': None,
+            'width': None,
+            'intensity_time': [],
+            'intensity_width': []
+        }
+
+        while True:
+
+            ret, frame = self.vid.read()
+
+            if ret == False:
+                self.data_graph['time'] = np.arange(1, self.count_frame + 1, 1)
+                cv2.destroyWindow('Video')
+                break
+
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            frame = frame[self.y1 : self.y2, self.x1 : self.x2]
+            mask = cv2.inRange(frame, self.lower_color, self.upper_color)
+            frame = cv2.bitwise_and(frame, frame, mask=mask)
+
+            self.data_graph['intensity_time'].append(np.mean(frame))
+            self.data_graph['intensity_width'].append(np.mean(frame, axis=0))
+            self.data_graph['width'] = np.arange(1, np.size(frame, 1) + 1, 1)
+            self.count_frame += 1
+
+            cv2.imshow('Video', frame)
+
+            if cv2.waitKey(1) & 0xFF == 27:
+                cv2.destroyWindow('Video')
+                break
+
+        x = self.data_graph['width']
+        y = self.data_graph['time']
+        z = self.data_graph['intensity_width']
+        z = np.array(z)
+
+        x = x[::5]
+        y = y[::5]
+        z = z[::5, ::5]
+
+        fig = plt.figure()
+        ax = plt.axes(projection='3d')
+
+        x, y = np.meshgrid(x, y)
+
+        surf = ax.plot_surface(x, y, z, cmap=cm.Reds, rstride=1, cstride=1, linewidth=0, antialiased=False)
+
+        ax.set_zlim(0, 255)
+        ax.zaxis.set_major_locator(LinearLocator(10))
+        ax.zaxis.set_major_formatter(FormatStrFormatter('%.00f'))
+
+        fig.colorbar(surf, shrink=0.5, aspect=5)
+
+        plt.show()
+
 
 
 if __name__=='__main__':
