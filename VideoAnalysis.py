@@ -40,29 +40,34 @@ class VideoPlayer:
         }
 
         layout = [
-             [sg.Text('Select video')], [sg.Input(key='-FILEPATH-'), sg.Button('Browse')],
+             [sg.HorizontalSeparator(color = 'white')],
+             [sg.Text('Select video', key='-INSTRUCTION-')],
+             [sg.HorizontalSeparator(color = 'white')],
+             [sg.Input(key='-FILEPATH-'), sg.Button('Browse')],
              [sg.Canvas(size=(700, 200), key='-CANVAS-', background_color='white', border_width=1)],
              [sg.Slider(size=(30, 20), range=(0, 100), resolution=1, key='-FRAMES-', orientation='h', 
-             enable_events=True), sg.T('0', key='-FRAMES_COUNTER-', size=(10, 1))],
-             [sg.Button('Next frame'), sg.Button('Pause', key='Play'), sg.Button('Mask', key='-MASK-'),
-             sg.Button('Exit')],
-             [sg.Slider(size=(30, 20), range=(0, 255), default_value = 0, resolution=1, key='-LOWER-', orientation='h', enable_events=True), 
-            sg.Slider(size=(30, 20), range=(0, 255), default_value = 255, resolution=1, key='-UPPER-', orientation='h', enable_events=True)],
+             enable_events=True), sg.T('0', key='-FRAMES_COUNTER-')],
+             [sg.Button('Next frame', size=(8, 1)), sg.Button('Pause', size=(8, 1), key='Play'), sg.Button('Mask', size=(8, 1), key='-MASK-'),
+             sg.Button('Exit', size=(8, 1))],
+             [sg.Text('Lower limit:'), sg.Slider(size=(20, 15), range=(0, 255), default_value = 0, resolution=1, key='-LOWER-', orientation='h', enable_events=True), 
+             sg.Text('Upper limit:'), sg.Slider(size=(20, 15), range=(0, 255), default_value = 255, resolution=1, key='-UPPER-', orientation='h', enable_events=True)],
+             [sg.HorizontalSeparator(color = 'white')],
              [sg.Button('Get channel', enable_events=True, key='-GET_CHANNEL-', font='Helvetica 16')],
-             [sg.Slider(size=(20, 15), range=(0, 100), resolution=1, key='-LEFT-', orientation='h', enable_events=True),
-             sg.Slider(size=(20, 15), range=(0, 100), resolution=1, key='-RIGHT-', orientation='h', enable_events=True)],
-             [sg.Slider(size=(20, 15), range=(0, 100), default_value = 0, resolution=1, key='-TOP-', orientation='h', enable_events=True),
-             sg.Slider(size=(20, 15), range=(0, 100), default_value = 0, resolution=1, key='-BOTTOM-', orientation='h', enable_events=True)],
-             [sg.Button('Convert video to graph', enable_events=True, key='-PROCESSING_VIDEO-', font='Helvetica 16')],
+             [sg.Text('Left:'), sg.Slider(size=(20, 15), range=(0, 100), resolution=1, key='-LEFT-', orientation='h', enable_events=True),
+             sg.Text('Right:'),sg.Slider(size=(20, 15), range=(0, 100), resolution=1, key='-RIGHT-', orientation='h', enable_events=True)],
+             [sg.Text('Top:'), sg.Slider(size=(20, 15), range=(0, 100), default_value = 0, resolution=1, key='-TOP-', orientation='h', enable_events=True),
+             sg.Text('Bottom:'), sg.Slider(size=(20, 15), range=(0, 100), default_value = 0, resolution=1, key='-BOTTOM-', orientation='h', enable_events=True)],
+             [sg.HorizontalSeparator(color = 'white')],
              [sg.Radio('2D: Intensity/time', 'SELECT_TYPE_OF_GRAPH',  key='-INT_T-', default=True),
              sg.VSeperator(),
              sg.Radio('2D: Intensity/width', 'SELECT_TYPE_OF_GRAPH', key='-INT_W-'),
-             sg.InputText(size=(5, 10), key='-TIME-'), 
+             sg.InputText(size=(5, 10), key='-TIME-', default_text = "10"), 
              sg.Text('ms'),
              sg.VSeperator(),
-             sg.Radio('3D: Intensity/time/width', 'SELECT_TYPE_OF_GRAPH',  key='-3D_INT-')],]
+             sg.Radio('3D: Intensity/time/width', 'SELECT_TYPE_OF_GRAPH',  key='-3D_INT-')],
+             [sg.Button('Convert video to graph', enable_events=True, key='-PROCESSING_VIDEO-', font='Helvetica 16')]]
 
-        self.window = sg.Window('Videoplayer', layout).Finalize()
+        self.window = sg.Window('Videoplayer', layout, element_justification='c').Finalize()
 
         canvas = self.window.Element('-CANVAS-')
         self.canvas = canvas.TKCanvas
@@ -82,6 +87,9 @@ class VideoPlayer:
                     print('no video selected, doing nothing')
 
                 if video_path:
+                    self.window.Element('-INSTRUCTION-').Update('Get channel')
+
+                    self.instruction_text = 'Get channel'
 
                     self.vid = MyVideoCapture(video_path, self.extended_properties)
 
@@ -139,6 +147,7 @@ class VideoPlayer:
             if event == '-GET_CHANNEL-':
                 if not self.extended_properties['get_channel']:
                     self.extended_properties['get_channel'] = True
+                    self.window.Element('-INSTRUCTION-').Update('Select type of graph and press button "Convert video to graph"')
                     if not self.play:
                         self.set_frame(self.frame)
                 else:
@@ -147,14 +156,22 @@ class VideoPlayer:
                         self.set_frame(self.frame)
             
             if self.extended_properties['get_channel']:
-                if values['-LEFT-']:
+                if values['-LEFT-'] or event == '-LEFT-':
                     self.extended_properties['channel']['x1'] = int(values['-LEFT-'])
-                if values['-RIGHT-']:
+                    if not self.play:
+                        self.set_frame(self.frame)
+                if values['-RIGHT-'] or event == '-RIGHT-':
                     self.extended_properties['channel']['x2'] = int(values['-RIGHT-'])
+                    if not self.play:
+                        self.set_frame(self.frame)
                 if values['-TOP-']:
                     self.extended_properties['channel']['y1'] = int(values['-TOP-'])
+                    if not self.play:
+                        self.set_frame(self.frame)
                 if values['-BOTTOM-']:
                     self.extended_properties['channel']['y2'] = int(values['-BOTTOM-'])
+                    if not self.play:
+                        self.set_frame(self.frame)
 
             if event == '-PROCESSING_VIDEO-' and values['-INT_T-'] == True:
                 GraphTime(self.extended_properties, video_path)
@@ -242,7 +259,7 @@ class MyVideoCapture:
                     mask = cv2.inRange(frame, self.extended_properties['lower_color'], self.extended_properties['upper_color'])
                     frame = cv2.bitwise_and(frame, frame, mask=mask)
                 if self.extended_properties['get_channel']:
-                    cv2.rectangle(frame, (x1, y1), (x2, y2), 255, 1)
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), 255, 3)
                 return ret, frame
             else:
                 return ret, None
@@ -250,6 +267,11 @@ class MyVideoCapture:
             return 0, None
 
     def goto_frame(self, frame_no):
+
+        x1 = self.extended_properties['channel']['x1']
+        x2 = self.extended_properties['channel']['x2']
+        y1 = self.extended_properties['channel']['y1']
+        y2 = self.extended_properties['channel']['y2']
 
         if self.vid.isOpened():
             self.vid.set(cv2.CAP_PROP_POS_FRAMES, frame_no)
@@ -259,6 +281,8 @@ class MyVideoCapture:
                 if self.extended_properties['mask']:
                     mask = cv2.inRange(frame, self.extended_properties['lower_color'], self.extended_properties['upper_color'])
                     frame = cv2.bitwise_and(frame, frame, mask=mask)
+                if self.extended_properties['get_channel']:
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), 255, 3)
                 return ret, frame
             else:
                 return ret, None
@@ -362,7 +386,7 @@ class GraphWidth:
                 break
 
         plt.plot(self.data_graph['width'], self.data_graph['intensity_width'])
-        plt.xlabel('Time')
+        plt.xlabel('Width')
         plt.ylabel('Intensity')
         plt.grid(True)
         plt.legend(['Mean pixels intensity'])
