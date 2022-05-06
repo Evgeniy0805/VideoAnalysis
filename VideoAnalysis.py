@@ -10,6 +10,12 @@ import time
 import matplotlib.pyplot as plt
 from matplotlib import cm
 from matplotlib.ticker import LinearLocator, FormatStrFormatter
+from scipy.integrate import simps
+from numpy import trapz
+from PIL import Image
+import openpyxl
+from openpyxl import Workbook
+from openpyxl.styles import NamedStyle, Font, Border, Side, Alignment
 
 class VideoPlayer:
 
@@ -39,6 +45,7 @@ class VideoPlayer:
             }
         }
 
+#Main menu structure 
         layout = [
              [sg.HorizontalSeparator(color = 'white')],
              [sg.Text('Select video', key='-INSTRUCTION-')],
@@ -67,6 +74,7 @@ class VideoPlayer:
              sg.Radio('3D: Intensity/time/width', 'SELECT_TYPE_OF_GRAPH',  key='-3D_INT-')],
              [sg.Button('Convert video to graph', enable_events=True, key='-PROCESSING_VIDEO-', font='Helvetica 16')]]
 
+#Create main videoplayer's window
         self.window = sg.Window('Videoplayer', layout, element_justification='c').Finalize()
 
         canvas = self.window.Element('-CANVAS-')
@@ -74,6 +82,7 @@ class VideoPlayer:
 
         self.load_video()
 
+#Main cycle for video processing
         while True:
             event, values = self.window.Read()
 
@@ -93,7 +102,6 @@ class VideoPlayer:
 
                     self.vid = MyVideoCapture(video_path, self.extended_properties)
 
-#Need add scale
                     self.vid_width = int(self.vid.width / self.vid.height * 200)
                     self.vid_height = 200
 
@@ -173,12 +181,8 @@ class VideoPlayer:
                     if not self.play:
                         self.set_frame(self.frame)
 
-            if event == '-PROCESSING_VIDEO-' and values['-INT_T-'] == True:
-                GraphTime(self.extended_properties, video_path)
             if event == '-PROCESSING_VIDEO-' and values['-INT_W-'] == True:
-                GraphWidth(self.extended_properties, video_path, values['-TIME-'])
-            if event == '-PROCESSING_VIDEO-' and values['-3D_INT-'] == True:
-                Graph3D(self.extended_properties, video_path)
+                Graph(self.extended_properties, video_path, values['-TIME-'])
 
             self.extended_properties['lower_color'] = int(values['-LOWER-'])
             self.extended_properties['upper_color'] = int(values['-UPPER-'])
@@ -186,11 +190,12 @@ class VideoPlayer:
         self.window.close()
         sys.exit
 
+#Function multithreading
     def load_video(self):
         thread = threading.Thread(target=self.update, args=())
         thread.daemon = 1
         thread.start()
-        
+  
     def update(self):
         start_time = time.time()
 
@@ -244,6 +249,7 @@ class MyVideoCapture:
 
         self.extended_properties = extended_properties
 
+#Get and change frame function
     def get_frame(self):
 
         x1 = self.extended_properties['channel']['x1']
@@ -254,7 +260,7 @@ class MyVideoCapture:
         if self.vid.isOpened():
             ret, frame = self.vid.read()
             if ret:
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) 
                 if self.extended_properties['mask']:
                     mask = cv2.inRange(frame, self.extended_properties['lower_color'], self.extended_properties['upper_color'])
                     frame = cv2.bitwise_and(frame, frame, mask=mask)
@@ -294,54 +300,7 @@ class MyVideoCapture:
         if self.vid.isOpened():
             self.vid.release()
 
-class GraphTime:
-    def __init__(self, channel, video_source):
-        self.count_frame = 0
-        self.x1 = channel['channel']['x1']
-        self.x2 = channel['channel']['x2']
-        self.y1 = channel['channel']['y1']
-        self.y2 = channel['channel']['y2']
-        self.lower_color = channel['lower_color']
-        self.upper_color = channel['upper_color']
-        self.vid = cv2.VideoCapture(video_source)
-        self.data_graph = {
-            'time': None,
-            'width': None,
-            'intensity_time': [],
-            'intensity_width': None
-        }
-
-        while True:
-
-            ret, frame = self.vid.read()
-
-            if ret == False:
-                self.data_graph['time'] = np.arange(1, self.count_frame + 1, 1)
-                cv2.destroyWindow('Video')
-                break
-
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            frame = frame[self.y1 : self.y2, self.x1 : self.x2]
-            mask = cv2.inRange(frame, self.lower_color, self.upper_color)
-            frame = cv2.bitwise_and(frame, frame, mask=mask)
-
-            self.data_graph['intensity_time'].append(np.mean(frame))
-            self.count_frame += 1
-
-            cv2.imshow('Video', frame)
-
-            if cv2.waitKey(1) & 0xFF == 27:
-                cv2.destroyWindow('Video')
-                break
-
-        plt.plot(self.data_graph['time'], self.data_graph['intensity_time'])
-        plt.xlabel('Time')
-        plt.ylabel('Intensity')
-        plt.grid(True)
-        plt.legend(['Mean pixels intensity'])
-        plt.show()
-
-class GraphWidth:
+class Graph:
     def __init__(self, channel, video_source, time):
         self.count_frame = 0
         self.x1 = channel['channel']['x1']
@@ -384,79 +343,50 @@ class GraphWidth:
             if cv2.waitKey(1) & 0xFF == 27:
                 cv2.destroyWindow('Video')
                 break
+        
+        area = round(trapz(self.data_graph['intensity_width'], dx=1), 1)
 
         plt.plot(self.data_graph['width'], self.data_graph['intensity_width'])
-        plt.xlabel('Width')
-        plt.ylabel('Intensity')
+        plt.xlabel('Distance')
+        plt.ylabel('Intensity signal')
         plt.grid(True)
         plt.legend(['Mean pixels intensity'])
+        plt.savefig('graph.png')
         plt.show()
+        OutputFile(area)
 
-class Graph3D:
-    def __init__(self, channel, video_source):
-        self.count_frame = 0
-        self.x1 = channel['channel']['x1']
-        self.x2 = channel['channel']['x2']
-        self.y1 = channel['channel']['y1']
-        self.y2 = channel['channel']['y2']
-        self.lower_color = channel['lower_color']
-        self.upper_color = channel['upper_color']
-        self.vid = cv2.VideoCapture(video_source)
-        self.data_graph = {
-            'time': None,
-            'width': None,
-            'intensity_time': [],
-            'intensity_width': []
-        }
+class OutputFile():
+    def __init__(self, output_data):
+        def create_data_style():
+            ns = NamedStyle(name='highlight')
+            ns.font = Font(bold=True, size=18)
+            border = Side(style='thin', color='000000')
+            ns.border = Border(left=border, top=border, right=border, bottom=border)
+            ns.alignment = Alignment(horizontal="center", vertical="center")
+            wb.add_named_style(ns)
 
-        while True:
+        def insert_graph(wb):
+            wb.create_sheet(title = 'Intensity signal', index = 0)
 
-            ret, frame = self.vid.read()
+            create_data_style()
 
-            if ret == False:
-                self.data_graph['time'] = np.arange(1, self.count_frame + 1, 1)
-                cv2.destroyWindow('Video')
-                break
+            wb['Intensity signal'].column_dimensions['B'].width = 30
+            wb['Intensity signal']['B2'].style = 'highlight'
+            wb['Intensity signal']['B3'].style = 'highlight'
 
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            frame = frame[self.y1 : self.y2, self.x1 : self.x2]
-            mask = cv2.inRange(frame, self.lower_color, self.upper_color)
-            frame = cv2.bitwise_and(frame, frame, mask=mask)
+            img = openpyxl.drawing.image.Image('graph.png')
+            img.anchor = 'D2'
 
-            self.data_graph['intensity_time'].append(np.mean(frame))
-            self.data_graph['intensity_width'].append(np.mean(frame, axis=0))
-            self.data_graph['width'] = np.arange(1, np.size(frame, 1) + 1, 1)
-            self.count_frame += 1
+            wb['Intensity signal'].add_image(img)
+            wb['Intensity signal']['B2'] = 'Area'
+            wb['Intensity signal']['B3'] = '{0:,}'.format(output_data).replace(',', ' ')
 
-            cv2.imshow('Video', frame)
+        wb = Workbook()
 
-            if cv2.waitKey(1) & 0xFF == 27:
-                cv2.destroyWindow('Video')
-                break
+        insert_graph(wb)
 
-        x = self.data_graph['width']
-        y = self.data_graph['time']
-        z = self.data_graph['intensity_width']
-        z = np.array(z)
-
-        x = x[::5]
-        y = y[::5]
-        z = z[::5, ::5]
-
-        fig = plt.figure()
-        ax = plt.axes(projection='3d')
-
-        x, y = np.meshgrid(x, y)
-
-        surf = ax.plot_surface(x, y, z, cmap=cm.Reds, rstride=1, cstride=1, linewidth=0, antialiased=False)
-
-        ax.set_zlim(0, 255)
-        ax.zaxis.set_major_locator(LinearLocator(10))
-        ax.zaxis.set_major_formatter(FormatStrFormatter('%.00f'))
-
-        fig.colorbar(surf, shrink=0.5, aspect=5)
-
-        plt.show()
+        wb.save('test.xlsx')
+        
 
 
 
