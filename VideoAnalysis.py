@@ -2,20 +2,19 @@ import cv2
 import numpy as np
 import PySimpleGUI as sg
 import PIL 
-from PIL import Image, ImageTk
+from PIL import Image
 import tkinter as tk
 import sys
 import threading
 import time
 import matplotlib.pyplot as plt
-from matplotlib import cm
-from matplotlib.ticker import LinearLocator, FormatStrFormatter
-from scipy.integrate import simps
 from numpy import trapz
 from PIL import Image
 import openpyxl
 from openpyxl import Workbook
 from openpyxl.styles import NamedStyle, Font, Border, Side, Alignment
+import os
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 class VideoPlayer:
 
@@ -46,46 +45,98 @@ class VideoPlayer:
         }
 
 #Main menu structure 
+
+        #Tab for input and processing video
+        video_layout = [
+            [sg.HorizontalSeparator(color = 'white')],
+            [sg.Text('Select video', key='-INSTRUCTION-')],
+            [sg.HorizontalSeparator(color = 'white')],
+            [sg.Input(key='-FILEPATH-'), 
+            sg.Button('Browse')],
+            [sg.Canvas(size=(700, 200), key='-CANVAS-', background_color='white', border_width=1)],
+            [sg.Slider(size=(30, 20), range=(0, 100), resolution=1, key='-FRAMES-', orientation='h', 
+            enable_events=True), 
+            sg.T('0', key='-FRAMES_COUNTER-')],
+            [sg.Button('Next frame', size=(8, 1)), 
+            sg.Button('Pause', size=(8, 1), key='Play'), 
+            sg.Button('Mask', size=(8, 1), key='-MASK-')],
+            [sg.Text('Lower limit:'), 
+            sg.Slider(size=(20, 15), range=(0, 255), default_value = 0, resolution=1, key='-LOWER-', orientation='h', enable_events=True), 
+            sg.Text('Upper limit:'),
+            sg.Slider(size=(20, 15), range=(0, 255), default_value = 255, resolution=1, key='-UPPER-', orientation='h', enable_events=True)],
+            [sg.HorizontalSeparator(color = 'white')],
+            [sg.Button('Get channel', enable_events=True, key='-GET_CHANNEL-', font='Helvetica 16')],
+            [sg.Text('Left:'),
+            sg.Slider(size=(20, 15), range=(0, 100), resolution=1, key='-LEFT-', orientation='h', enable_events=True),
+            sg.Text('Right:'),
+            sg.Slider(size=(20, 15), range=(0, 100), resolution=1, key='-RIGHT-', orientation='h', enable_events=True)],
+            [sg.Text('Top:'),
+            sg.Slider(size=(20, 15), range=(0, 100), default_value = 0, resolution=1, key='-TOP-', orientation='h', enable_events=True),
+            sg.Text('Bottom:'), 
+            sg.Slider(size=(20, 15), range=(0, 100), default_value = 0, resolution=1, key='-BOTTOM-', orientation='h', enable_events=True)],
+            [sg.HorizontalSeparator(color = 'white')],
+            [sg.Radio('2D: Intensity/width', 'SELECT_TYPE_OF_GRAPH', key='-INT_W-'),
+            sg.InputText(size=(5, 10), key='-TIME-', default_text = "30"), 
+            sg.Text('ms')],
+            [sg.Button('Convert video to graph', enable_events=True, key='-PROCESSING_VIDEO-', font='Helvetica 16')]]
+
+        #Tab for input and processing image
+        image_layout = [
+            [sg.HorizontalSeparator(color = 'white')],
+            [sg.Text('Select video', key='-INSTRUCTION-')],
+            [sg.HorizontalSeparator(color = 'white')],
+            [sg.Input(key='-FILEPATH-'), 
+            sg.Button('Browse')],
+            [sg.Canvas(size=(700, 200), key='-CANVAS-', background_color='white', border_width=1)],
+            [sg.Button('Mask', size=(8, 1), key='-MASK-')],
+            [sg.Text('Lower limit:'), 
+            sg.Slider(size=(20, 15), range=(0, 255), default_value = 0, resolution=1, key='-LOWER-', orientation='h', enable_events=True), 
+            sg.Text('Upper limit:'), 
+            sg.Slider(size=(20, 15), range=(0, 255), default_value = 255, resolution=1, key='-UPPER-', orientation='h', enable_events=True)],
+            [sg.HorizontalSeparator(color = 'white')],
+            [sg.Button('Get channel', enable_events=True, key='-GET_CHANNEL-', font='Helvetica 16')],
+            [sg.Text('Left:'), 
+            sg.Slider(size=(20, 15), range=(0, 100), resolution=1, key='-LEFT-', orientation='h', enable_events=True),
+            sg.Text('Right:'),
+            sg.Slider(size=(20, 15), range=(0, 100), resolution=1, key='-RIGHT-', orientation='h', enable_events=True)],
+            [sg.Text('Top:'), 
+            sg.Slider(size=(20, 15), range=(0, 100), default_value = 0, resolution=1, key='-TOP-', orientation='h', enable_events=True),
+            sg.Text('Bottom:'),
+            sg.Slider(size=(20, 15), range=(0, 100), default_value = 0, resolution=1, key='-BOTTOM-', orientation='h', enable_events=True)],
+            [sg.HorizontalSeparator(color = 'white')],
+            [sg.Radio('2D: Intensity/width', 'SELECT_TYPE_OF_GRAPH', key='-INT_W-'),
+            sg.InputText(size=(5, 10), key='-TIME-', default_text = "10"), 
+            sg.Text('ms')],
+            [sg.Button('Convert video to graph', enable_events=True, key='-PROCESSING_VIDEO-', font='Helvetica 16')]]
+
+        #Tab for output data
+        output_layout = [[sg.Canvas(size=(700, 200), key='output-canvas', background_color='white', border_width=1)],
+                        [sg.Button("Save as '.xlsx' file", enable_events=True, key='-SAVE_OUTPUT_FILE-', font='Helvetica 16')]]
+
+        #Layout for all tabs
         layout = [
-             [sg.HorizontalSeparator(color = 'white')],
-             [sg.Text('Select video', key='-INSTRUCTION-')],
-             [sg.HorizontalSeparator(color = 'white')],
-             [sg.Input(key='-FILEPATH-'), sg.Button('Browse')],
-             [sg.Canvas(size=(700, 200), key='-CANVAS-', background_color='white', border_width=1)],
-             [sg.Slider(size=(30, 20), range=(0, 100), resolution=1, key='-FRAMES-', orientation='h', 
-             enable_events=True), sg.T('0', key='-FRAMES_COUNTER-')],
-             [sg.Button('Next frame', size=(8, 1)), sg.Button('Pause', size=(8, 1), key='Play'), sg.Button('Mask', size=(8, 1), key='-MASK-'),
-             sg.Button('Exit', size=(8, 1))],
-             [sg.Text('Lower limit:'), sg.Slider(size=(20, 15), range=(0, 255), default_value = 0, resolution=1, key='-LOWER-', orientation='h', enable_events=True), 
-             sg.Text('Upper limit:'), sg.Slider(size=(20, 15), range=(0, 255), default_value = 255, resolution=1, key='-UPPER-', orientation='h', enable_events=True)],
-             [sg.HorizontalSeparator(color = 'white')],
-             [sg.Button('Get channel', enable_events=True, key='-GET_CHANNEL-', font='Helvetica 16')],
-             [sg.Text('Left:'), sg.Slider(size=(20, 15), range=(0, 100), resolution=1, key='-LEFT-', orientation='h', enable_events=True),
-             sg.Text('Right:'),sg.Slider(size=(20, 15), range=(0, 100), resolution=1, key='-RIGHT-', orientation='h', enable_events=True)],
-             [sg.Text('Top:'), sg.Slider(size=(20, 15), range=(0, 100), default_value = 0, resolution=1, key='-TOP-', orientation='h', enable_events=True),
-             sg.Text('Bottom:'), sg.Slider(size=(20, 15), range=(0, 100), default_value = 0, resolution=1, key='-BOTTOM-', orientation='h', enable_events=True)],
-             [sg.HorizontalSeparator(color = 'white')],
-             [sg.Radio('2D: Intensity/time', 'SELECT_TYPE_OF_GRAPH',  key='-INT_T-', default=True),
-             sg.VSeperator(),
-             sg.Radio('2D: Intensity/width', 'SELECT_TYPE_OF_GRAPH', key='-INT_W-'),
-             sg.InputText(size=(5, 10), key='-TIME-', default_text = "10"), 
-             sg.Text('ms'),
-             sg.VSeperator(),
-             sg.Radio('3D: Intensity/time/width', 'SELECT_TYPE_OF_GRAPH',  key='-3D_INT-')],
-             [sg.Button('Convert video to graph', enable_events=True, key='-PROCESSING_VIDEO-', font='Helvetica 16')]]
+            [sg.TabGroup([
+                [sg.Tab('Video', video_layout, element_justification='center'),
+                 sg.Tab('Image', image_layout, element_justification='center'), 
+                 sg.Tab('Output', output_layout, element_justification='center')]
+                ])],
+            [sg.Button('Exit', font='Helvetica 16')]]
 
 #Create main videoplayer's window
-        self.window = sg.Window('Videoplayer', layout, element_justification='c').Finalize()
+        screen_width, screen_height = sg.Window.get_screen_size()
+        self.window = sg.Window('Signal intensity analysis', layout, size = (int(screen_width * 0.8), int(screen_height * 0.9)), resizable=True, element_justification='center').Finalize()
 
         canvas = self.window.Element('-CANVAS-')
         self.canvas = canvas.TKCanvas
+
+        output_canvas = self.window.Element('output-canvas')
 
         self.load_video()
 
 #Main cycle for video processing
         while True:
             event, values = self.window.Read()
-
+            print(event)
             if event is None or event == 'Exit':
                 break
             if event == 'Browse':
@@ -182,7 +233,7 @@ class VideoPlayer:
                         self.set_frame(self.frame)
 
             if event == '-PROCESSING_VIDEO-' and values['-INT_W-'] == True:
-                Graph(self.extended_properties, video_path, values['-TIME-'])
+                Graph(self.extended_properties, video_path, values['-TIME-'], output_canvas)
 
             self.extended_properties['lower_color'] = int(values['-LOWER-'])
             self.extended_properties['upper_color'] = int(values['-UPPER-'])
@@ -301,7 +352,7 @@ class MyVideoCapture:
             self.vid.release()
 
 class Graph:
-    def __init__(self, channel, video_source, time):
+    def __init__(self, channel, video_source, time, output):
         self.count_frame = 0
         self.x1 = channel['channel']['x1']
         self.x2 = channel['channel']['x2']
@@ -346,17 +397,26 @@ class Graph:
         
         area = round(trapz(self.data_graph['intensity_width'], dx=1), 1)
 
+        def draw_figure(canvas, figure):
+            figure_canvas_agg = FigureCanvasTkAgg(figure, canvas)
+            figure_canvas_agg.draw()
+            figure_canvas_agg.get_tk_widget().pack(side="top", fill="both", expand=1)
+            return figure_canvas_agg
+        
+        fig = plt.figure()
+        draw_figure(output.TKCanvas, fig)
+
         plt.plot(self.data_graph['width'], self.data_graph['intensity_width'])
         plt.xlabel('Distance')
         plt.ylabel('Intensity signal')
         plt.grid(True)
         plt.legend(['Mean pixels intensity'])
         plt.savefig('graph.png')
-        plt.show()
         OutputFile(area)
 
 class OutputFile():
     def __init__(self, output_data):
+        pass
         def create_data_style():
             ns = NamedStyle(name='highlight')
             ns.font = Font(bold=True, size=18)
@@ -384,8 +444,8 @@ class OutputFile():
         wb = Workbook()
 
         insert_graph(wb)
-
         wb.save('test.xlsx')
+        os.remove('graph.png')
         
 
 
