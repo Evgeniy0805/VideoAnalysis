@@ -14,6 +14,7 @@ from openpyxl import Workbook
 from openpyxl.styles import NamedStyle, Font, Border, Side, Alignment
 import os
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import sys
 
 #Main class of application
 class App:
@@ -79,7 +80,7 @@ class App:
             sg.Slider(size=(20, 15), range=(0, 100), default_value = 0, resolution=1, key='-BOTTOM_IMAGE-', orientation='h', enable_events=True)],
             [sg.HorizontalSeparator(color = 'white')],
             [sg.Radio('2D: Intensity/width', '-GRAPH_IMAGE-', default=True)],
-            [sg.Button('Convert video to graph', enable_events=True, key='-PROCESSING_IMAGE-', font='Helvetica 16')]]
+            [sg.Button('Convert image to graph', enable_events=True, key='-PROCESSING_IMAGE-', font='Helvetica 16')]]
 
 #Tab for output data
         output_layout = [[sg.Canvas(size=(700, 200), key='-OUTPUT_CANVAS-', background_color='white', border_width=1)],
@@ -160,7 +161,7 @@ class VideoPlayer(FileHandler):
             if event == '-BROWSE_VIDEO-':
                 video_path = None
                 try:
-                    video_path = sg.filedialog.askopenfile().name
+                    video_path = sg.filedialog.askopenfile(filetypes=[("Video", ".MP4 .AVI")]).name
                 except AttributeError:
                     print('no video selected, doing nothing')
 
@@ -250,7 +251,10 @@ class VideoPlayer(FileHandler):
                         self.set_frame(self.frame)
 
             if event == '-PROCESSING_VIDEO-':
-                GraphVideo(self.extended_properties, video_path, self.output_canvas, self.window, values['-TIME-'])
+                if self.extended_properties['get_channel']:
+                    GraphVideo(self.extended_properties, video_path, self.output_canvas, self.window, values['-TIME-'])
+                else:
+                    sg.popup_ok('No channel selected')
 
             self.extended_properties['lower_color'] = int(values['-LOWER-'])
             self.extended_properties['upper_color'] = int(values['-UPPER-'])
@@ -380,7 +384,7 @@ class ImageEditor(FileHandler):
             if event == '-BROWSE_IMAGE-':
                 video_path = None
                 try:
-                    video_path = sg.filedialog.askopenfile().name
+                    video_path = sg.filedialog.askopenfile(filetypes=[("Image", ".png .jpg .tif .jpeg")]).name
                 except AttributeError:
                     print('no video selected, doing nothing')
 
@@ -445,8 +449,11 @@ class ImageEditor(FileHandler):
                     self.extended_properties['channel']['y2'] = int(values['-BOTTOM_IMAGE-'])
                     self.update()
 
-                if event == '-PROCESSING_IMAGE-':
+            if event == '-PROCESSING_IMAGE-':
+                if self.extended_properties['get_channel']:
                     GraphImage(self.extended_properties, video_path, self.output_canvas, self.window)
+                else:
+                    sg.popup_ok('No channel selected')
 
     def update(self):
         if self.img:
@@ -612,10 +619,9 @@ class GraphImage:
 #Class for create output 'xlsx' file
 class OutputFile():
     def __init__(self, output_data, window, table):
-        pass
-        def create_data_style():
-            ns = NamedStyle(name='highlight')
-            ns.font = Font(bold=True, size=18)
+        def create_data_style(name, bold, font_size):
+            ns = NamedStyle(name=name)
+            ns.font = Font(bold=bold, size=font_size)
             border = Side(style='thin', color='000000')
             ns.border = Border(left=border, top=border, right=border, bottom=border)
             ns.alignment = Alignment(horizontal="center", vertical="center")
@@ -624,7 +630,8 @@ class OutputFile():
         def insert_graph(wb):
             wb.create_sheet(title = 'Intensity signal', index = 0)
 
-            create_data_style()
+            create_data_style('highlight', True, 18)
+            create_data_style('table', False, 12)
 
             wb['Intensity signal'].column_dimensions['B'].width = 30
             wb['Intensity signal']['B2'].style = 'highlight'
@@ -639,10 +646,14 @@ class OutputFile():
 
             wb['Intensity signal']['A5'] = 'Distance'
             wb['Intensity signal']['B5'] = 'Signal Intensity'
+            wb['Intensity signal']['A5'].style = 'table'
+            wb['Intensity signal']['B5'].style = 'table'
 
             for i in range(0, len(table['x'])):
                 wb['Intensity signal'][f'A{i+6}'] = table['x'][i]
                 wb['Intensity signal'][f'B{i+6}'] = table['y'][i]
+                wb['Intensity signal'][f'A{i+6}'].style = 'table'
+                wb['Intensity signal'][f'B{i+6}'].style = 'table'
 
         wb = Workbook()
 
@@ -658,10 +669,8 @@ class OutputFile():
                 wb.save(path+'.xlsx')
                 os.remove('graph.png')
                 os.remove(path)
+                os.execl(sys.executable, sys.executable, *sys.argv)
                 break
         
-
-
-
 if __name__=='__main__':
     App()
