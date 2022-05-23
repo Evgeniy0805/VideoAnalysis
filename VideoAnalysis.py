@@ -19,13 +19,13 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 class App:
 
     def __init__(self):
-    
+        button_colors =  (sg.theme_background_color(), sg.theme_background_color())
 #Tab for input and processing video
         video_layout = [
-            [sg.Input(key='-FILEPATH_VIDEO-'), 
-            sg.Button('Browse', key='-BROWSE_VIDEO-')],
-            [sg.Canvas(size=(700, 200), key='-CANVAS_VIDEO-', background_color='white', border_width=1)],
-            [sg.Slider(size=(30, 20), range=(0, 100), resolution=1, key='-FRAMES-', orientation='h', 
+            [sg.Input('Browse video', key='-FILEPATH_VIDEO-'), 
+            sg.Button('Browse', key='-BROWSE_VIDEO-', border_width=0)],
+            [sg.Canvas(size=(800, 300), key='-CANVAS_VIDEO-', background_color='white', border_width=1)],
+            [sg.Column([[sg.Slider(size=(20, 15), range=(0, 100), resolution=1, key='-FRAMES-', orientation='h', 
             enable_events=True), 
             sg.T('0', key='-FRAMES_COUNTER-')],
             [sg.Button('Next frame', size=(8, 1)), 
@@ -33,9 +33,9 @@ class App:
             sg.Button('Mask', size=(8, 1), key='-MASK-'),
             sg.Button('Blure', size=(8, 1), key='-BLURE_VIDEO-'),
             sg.Text('kX:'), 
-            sg.Spin(values=[i for i in range(1,50,2)], initial_value=1, key='-BLURE_VID_VALUE-', enable_events=True),
+            sg.Spin(values=[i for i in range(1,50,2)], initial_value=7, key='-BLURE_VID_VALUE-', enable_events=True),
             sg.Text('k:'), 
-            sg.Spin(values=[i for i in range(0,20)], initial_value=0, key='-BLURE_VID_VALUE_K-', enable_events=True)],
+            sg.Spin(values=[i for i in range(0,20)], initial_value=1, key='-BLURE_VID_VALUE_K-', enable_events=True)],
             [sg.Text('Lower limit:'), 
             sg.Slider(size=(20, 15), range=(0, 255), default_value = 0, resolution=1, key='-LOWER-', orientation='h', enable_events=True), 
             sg.Text('Upper limit:'),
@@ -54,18 +54,18 @@ class App:
             [sg.Radio('2D: Intensity/width', '-GRAPH_VIDEO-', default=True),
             sg.InputText(size=(5, 10), key='-TIME-', default_text = "30"), 
             sg.Text('frames')],
-            [sg.Button('Convert video to graph', enable_events=True, key='-PROCESSING_VIDEO-')]]
+            [sg.Button('Convert video to graph', enable_events=True, key='-PROCESSING_VIDEO-')]], scrollable=True, vertical_scroll_only=True, element_justification='center', size=(550, 300))]]
 
-#Tab for input and processing image
+    #Tab for input and processing image
         image_layout = [
-            [sg.Input(key='-FILEPATH_IMAGE-'), 
-            sg.Button('Browse', key='-BROWSE_IMAGE-')],
-            [sg.Canvas(size=(700, 200), key='-CANVAS_IMAGE-', background_color='white', border_width=1)],
-            [sg.Button('Mask', size=(8, 1), key='-MASK_IMAGE-'),
+            [sg.Input('Browse image', key='-FILEPATH_IMAGE-'), 
+            sg.Button('Browse', key='-BROWSE_IMAGE-', border_width=0)],
+            [sg.Canvas(size=(800, 300), key='-CANVAS_IMAGE-', background_color='white', border_width=1)],
+            [sg.Column([[sg.Button('Mask', size=(8, 1), key='-MASK_IMAGE-'),
             sg.Button('Blure', size=(8, 1), key='-BLURE_IMAGE-'),
             sg.Text('kX:'), 
-            sg.Spin(values=[i for i in range(1,50,2)], initial_value=1, key='-BLURE_IMG_VALUE-', enable_events=True), 
-            sg.Spin(values=[i for i in range(0,20)], initial_value=0, key='-BLURE_IMG_VALUE_K-', enable_events=True)],
+            sg.Spin(values=[i for i in range(1,50,2)], initial_value=7, key='-BLURE_IMG_VALUE-', enable_events=True), 
+            sg.Spin(values=[i for i in range(0,20)], initial_value=1, key='-BLURE_IMG_VALUE_K-', enable_events=True)],
             [sg.Text('Lower limit:'), 
             sg.Slider(size=(20, 15), range=(0, 255), default_value = 0, resolution=1, key='-LOWER_IMAGE-', orientation='h', enable_events=True), 
             sg.Text('Upper limit:'), 
@@ -82,23 +82,24 @@ class App:
             sg.Slider(size=(20, 15), range=(0, 100), default_value = 0, resolution=1, key='-BOTTOM_IMAGE-', orientation='h', enable_events=True)],
             [sg.HorizontalSeparator(color = 'white')],
             [sg.Radio('2D: Intensity/width', '-GRAPH_IMAGE-', default=True)],
-            [sg.Button('Convert image to graph', enable_events=True, key='-PROCESSING_IMAGE-')]]
+            [sg.Button('Convert image to graph', enable_events=True, key='-PROCESSING_IMAGE-')]],
+            scrollable=True, vertical_scroll_only=True, element_justification='center', size=(550, 300))]]
 
-#Tab for output data
+    #Tab for output data
         output_layout = [[sg.Canvas(size=(700, 200), key='-OUTPUT_CANVAS-', background_color='white', border_width=1)],
-                        [sg.Column([[sg.T('0', key='-AREA-')]], scrollable=True, vertical_scroll_only=True, justification='center', size=(100, 10), key='-AREA_LIST-')],
+                        [sg.Column([[sg.T('0', key='-AREA-')]], scrollable=True, vertical_scroll_only=True, element_justification='center', size=(100, 10), key='-AREA_LIST-')],
                         [sg.Button("Save as '.xlsx' file", enable_events=True, key='-SAVE_OUTPUT_FILE-')]]
 
-#Layout for all tabs
+    #Layout for all tabs
         layout = [
             [sg.TabGroup([
                 [sg.Tab('Video', video_layout, element_justification='center'),
-                 sg.Tab('Image', image_layout, element_justification='center'), 
-                 sg.Tab('Output', output_layout, element_justification='center')]
+                    sg.Tab('Image', image_layout, element_justification='center'), 
+                    sg.Tab('Output', output_layout, element_justification='center')]
                 ], enable_events=True, key='-APP-')],
             [sg.Button('Exit')]]
 
-#Create main videoplayer's window
+    #Create main videoplayer's window
         screen_width, screen_height = sg.Window.get_screen_size()
         self.window = sg.Window('Signal intensity analysis', layout, size = (int(screen_width * 0.8), int(screen_height * 0.9)), resizable=True, element_justification='center').Finalize()
 
@@ -107,7 +108,8 @@ class App:
 
         self.output_canvas = self.window.Element('-OUTPUT_CANVAS-').TKCanvas
 
-        VideoPlayer(self.window, self.canvas_video, self.output_canvas)
+        VideoPlayerItem = VideoPlayer(self.window, self.canvas_video, self.output_canvas)
+        VideoPlayerItem.processing_video()
 
 #Base class for processing input file
 class FileHandler:
@@ -124,7 +126,7 @@ class FileHandler:
         self.extended_properties = {
             'lower_color': 00,
             'upper_color': 255,
-            'blure_value': 1,
+            'blure_value': 7,
             'blure_value_k': 1,
             'mask': False,
             'get_channel': False,
@@ -137,13 +139,25 @@ class FileHandler:
             }
         }
 
+    def set_img_size(self, width, height, max_width, max_height):
+        ratio_sides = width / height
+        new_height = max_height
+        new_width = ratio_sides * new_height
+
+        if (new_width < max_width):
+            return (int(new_width), int(new_height))
+        else:
+            new_width = max_width
+            new_height = new_width / ratio_sides
+            return (int(new_width), int(new_height))
+
 #Class for processing video file
 class VideoPlayer(FileHandler):
 
     def __init__(self, window, canvas, output_canvas):
-
         FileHandler.__init__(self, window, canvas, output_canvas)
-
+        self.window = window
+        self.output_canvas = output_canvas
         self.play = True
         self.delay = 0.023
         self.frame = 1
@@ -152,9 +166,9 @@ class VideoPlayer(FileHandler):
         self.vid = None
         self.photo = None
         self.next = '1'
-        
         self.load_video()
 
+    def processing_video(self):
         canvas_image = self.window.Element('-CANVAS_IMAGE-')
         canvas_image = canvas_image.TKCanvas
 
@@ -163,7 +177,8 @@ class VideoPlayer(FileHandler):
             if event is None or event == 'Exit':
                 break
             if values['-APP-'] == 'Image':
-                ImageEditor(window, canvas_image, output_canvas)
+                ImageEditorItem = ImageEditor(self.window, canvas_image, self.output_canvas)
+                ImageEditorItem.processing_image()
             if event == '-BROWSE_VIDEO-':
                 video_path = None
                 try:
@@ -172,26 +187,18 @@ class VideoPlayer(FileHandler):
                     print('no video selected, doing nothing')
 
                 if video_path:
-
                     self.vid = MyVideoCapture(video_path, self.extended_properties)
-
-                    self.vid_width = int(self.vid.width / self.vid.height * 200)
-                    self.vid_height = 200
-
+                    self.vid_width, self.vid_height = (super().set_img_size(self.vid.width, self.vid.height, 800, 300))
                     self.frames = int(self.vid.frames)
-
                     self.window.Element('-FRAMES-').Update(range=(0, int(self.frames)), value=0)
                     self.window.Element('-FRAMES_COUNTER-').Update('0/%i' % self.frames)
                     self.canvas.config(width=self.vid_width, height=self.vid_height)
-
                     self.window.Element('-LEFT-').Update(range=(0, int(self.vid.width)), value=0)
                     self.window.Element('-RIGHT-').Update(range=(0, int(self.vid.width)), value=int(self.vid.width))
                     self.window.Element('-TOP-').Update(range=(0, int(self.vid.height)), value=0)
                     self.window.Element('-BOTTOM-').Update(range=(0, int(self.vid.height)), value=int(self.vid.height))
-
                     self.frame = 0
                     self.delay = 1 / self.vid.fps
-
                     self.window.Element('-FILEPATH_VIDEO-').Update(video_path)
 
             if event == '-PLAY-':
@@ -274,7 +281,8 @@ class VideoPlayer(FileHandler):
 
             if event == '-PROCESSING_VIDEO-':
                 if self.extended_properties['get_channel']:
-                    GraphVideo(self.extended_properties, video_path, self.output_canvas, self.window, values['-TIME-'], canvas, output_canvas)
+                    GraphVideoData = GraphVideo(self.extended_properties, video_path, self.output_canvas, self.window, values['-TIME-'], self.canvas, self.output_canvas)
+                    GraphVideoData.create_output_data()
                 else:
                     sg.popup_ok('No channel selected')
 
@@ -405,6 +413,11 @@ class MyVideoCapture:
 class ImageEditor(FileHandler):
     def __init__(self, window, canvas, output_canvas):
         FileHandler.__init__(self, window, canvas, output_canvas)
+        self.window = window
+        self.canvas = canvas
+        self.output_canvas = output_canvas
+
+    def processing_image(self):
 
         canvas_video = self.window.Element('-CANVAS_VIDEO-')
         canvas_video = canvas_video.TKCanvas
@@ -415,7 +428,8 @@ class ImageEditor(FileHandler):
             if event is None or event == 'Exit':
                 break
             if values['-APP-'] == 'Video':
-                VideoPlayer(window, canvas_video, output_canvas)
+                VideoPlayerItem = VideoPlayer(self.window, canvas_video, self.output_canvas)
+                VideoPlayerItem.processing_video()
             if event == '-BROWSE_IMAGE-':
                 video_path = None
                 try:
@@ -427,8 +441,7 @@ class ImageEditor(FileHandler):
 
                     self.img = MyImageCapture(video_path, self.extended_properties)
 
-                    self.img_width = int(self.img.width / self.img.height * 200) 
-                    self.img_height = 200
+                    self.img_width, self.img_height = (super().set_img_size(self.img.width, self.img.height, 800, 300))
 
                     self.canvas.config(width=self.img_width, height=self.img_height)
 
@@ -436,7 +449,6 @@ class ImageEditor(FileHandler):
                     self.window.Element('-RIGHT_IMAGE-').Update(range=(0, int(self.img.width)), value=int(self.img.width))
                     self.window.Element('-TOP_IMAGE-').Update(range=(0, int(self.img.height)), value=0)
                     self.window.Element('-BOTTOM_IMAGE-').Update(range=(0, int(self.img.height)), value=int(self.img.height))
-
                     self.window.Element('-FILEPATH_IMAGE-').Update(video_path)
 
                     self.photo = PIL.ImageTk.PhotoImage(
@@ -502,7 +514,8 @@ class ImageEditor(FileHandler):
 
             if event == '-PROCESSING_IMAGE-':
                 if self.extended_properties['get_channel']:
-                    GraphImage(self.extended_properties, video_path, self.output_canvas, self.window, canvas, output_canvas)
+                    GraphImageData = GraphImage(self.extended_properties, video_path, self.output_canvas, self.window, self.canvas, self.output_canvas)
+                    GraphImageData.create_output_data()
                 else:
                     sg.popup_ok('No channel selected')
 
@@ -543,7 +556,7 @@ class MyImageCapture:
             img = cv2.GaussianBlur(img, (blure_value, blure_value), blure_value_k)
 
         if self.extended_properties['get_channel']:
-            cv2.rectangle(img, (x1, y1), (x2, y2), 255, 3)
+            cv2.rectangle(img, (x1, y1), (x2, y2), 255, 5)
         return img
 
 #Class for create graph
@@ -563,6 +576,65 @@ class Graph:
             'intensity_width': []
         }
         self.area = []
+        self.array_figure = []
+
+    def handle_img(self, img):
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        img = img[self.y1 : self.y2, self.x1 : self.x2]
+        mask = cv2.inRange(img, self.lower_color, self.upper_color)
+        img = cv2.bitwise_and(img, img, mask=mask)
+        return img
+
+    def calc_data_graph(self, img):
+        self.data_graph['intensity_width'] = np.mean(img, axis=0)
+        self.data_graph['width'] = np.arange(1, np.size(img, 1) + 1, 1)
+        self.data_table = {
+            'x': self.data_graph['width'],
+            'y': self.data_graph['intensity_width']
+        }   
+
+    def get_figures(self, x1, array_length):
+        if x1 > array_length:
+            return
+        for i in range (x1, array_length):
+            if self.data_graph['intensity_width'][i] > 0:
+                left_dot = i
+                for j in range(i, len(self.data_graph['intensity_width'])):
+                    if self.data_graph['intensity_width'][j] == 0:
+                        right_dot = j  - 1
+                        self.array_figure.append((left_dot, right_dot))
+                        self.get_figures(right_dot + 1, array_length)
+                        return
+
+    def calc_area(self, main_array, array_figure):
+        area_array = []
+        figures =[]
+        for i in array_figure:
+            left_dot, right_dot = i
+            figures.append(main_array[left_dot : right_dot])
+        for i in figures:
+            area_array.append(round(trapz(i, dx=1), 1))
+        return area_array
+
+    def filter_area(self, area):
+        if area > 100:
+            return True
+        else:
+            return False
+
+    def update_output_area_element(self):
+        self.get_figures(1, len(self.data_graph['intensity_width']))
+        self.area = self.calc_area(self.data_graph['intensity_width'], self.array_figure)
+        self.area = filter(self.filter_area, self.area)
+        self.area = [*self.area]
+
+        area_element = ''
+        count = 1
+        for i in range(0, len(self.area)):
+            area_element += f'Area{count}: {self.area[i]}\n'
+            count += 1
+
+        self.window.Element('-AREA-').Update(area_element)
 
     def draw_graph(self, data_for_graph, data_x, data_y, label_x, label_y):
         fig, ax = plt.subplots()
@@ -578,181 +650,65 @@ class Graph:
         plt.savefig('graph.png')
 
 #Class for create graph from video
-class GraphVideo:
+class GraphVideo(Graph):
     def __init__(self, channel, source, output, window, time, canvas, output_canvas):
-        Graph.__init__(self, channel, source, output, window)
+        super().__init__(channel, source, output, window)
         self.count_frame = 0
         self.vid = cv2.VideoCapture(source)
+        self.time = time
+        self.canvas = canvas
+        self.output_canvas = output_canvas
         
-        def get_figures(x1, array_length):
-            if x1 > array_length:
-                return
-            for i in range (x1, array_length):
-                if self.data_graph['intensity_width'][i] > 0:
-                    left_dot = i
-                    for j in range(i, len(self.data_graph['intensity_width'])):
-                        if self.data_graph['intensity_width'][j] == 0:
-                            right_dot = j  - 1
-                            array_figure.append((left_dot, right_dot))
-                            get_figures(right_dot + 1, array_length)
-                            return
-
-        def calc_area(main_array, array_figure):
-            area_array = []
-            figures =[]
-            for i in array_figure:
-                left_dot, right_dot = i
-                figures.append(main_array[left_dot : right_dot])
-            for i in figures:
-                area_array.append(round(trapz(i, dx=1), 1))
-            return area_array
-
-        def filter_area(area):
-            if area > 100:
-                return True
-            else:
-                return False
-
+    def create_output_data(self):
         while True:
-
             ret, frame = self.vid.read()
-
             if ret == False:
                 self.data_graph['time'] = np.arange(1, self.count_frame + 1, 1)
                 cv2.destroyWindow('Video')
                 break
 
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            frame = frame[self.y1 : self.y2, self.x1 : self.x2]
-            mask = cv2.inRange(frame, self.lower_color, self.upper_color)
-            frame = cv2.bitwise_and(frame, frame, mask=mask)
-
+            frame = super().handle_img(frame)
             self.count_frame += 1
-
             cv2.imshow('Video', frame)
-
-            if  self.count_frame == int(time):
-                self.data_graph['intensity_width'] = np.mean(frame, axis=0)
-
-                array_figure = []
-                get_figures(1, len(self.data_graph['intensity_width']))
-
-                self.data_graph['width'] = np.arange(1, np.size(frame, 1) + 1, 1)
-                self.data_table = {
-                    'x': self.data_graph['width'],
-                    'y': self.data_graph['intensity_width']
-                }
+            if  self.count_frame == int(self.time):
+                super().calc_data_graph(frame)
                 cv2.destroyWindow('Video')
                 break
+
             if cv2.waitKey(1) & 0xFF == 27:
                 cv2.destroyWindow('Video')
                 break
-        
-        self.area = calc_area(self.data_graph['intensity_width'], array_figure)
-        self.area = filter(filter_area, self.area)
-        self.area = [*self.area]
 
-        area_element = ''
-        count = 1
-        for i in range(0, len(self.area)):
-            if self.area[i] > 100:
-                area_element += f'Area{count}: {self.area[i]}\n'
-                count += 1
-
-        self.window.Element('-AREA-').Update(area_element)
-
-        window.Element('-AREA-').Update(area_element)
-
-        Graph.draw_graph(self, output, self.data_graph['width'],
+        super().update_output_area_element()
+        super().draw_graph(self.output, self.data_graph['width'],
                         self.data_graph['intensity_width'],
                         'Distance', 
                         'Signal intensity')
-
-        OutputFile(self.area, self.window, self.data_table, canvas, output_canvas)
+        OutputFile(self.area, self.window, self.data_table)
 
 #Class for create graph from image
-class GraphImage:
+class GraphImage(Graph):
     def __init__(self, channel, source, output, window, canvas, output_canvas):
-        Graph.__init__(self, channel, source, output, window)
-        self.x1 = channel['channel']['x1']
-        self.x2 = channel['channel']['x2']
-        self.y1 = channel['channel']['y1']
-        self.y2 = channel['channel']['y2']
-        self.lower_color = channel['lower_color']
-        self.upper_color = channel['upper_color']
-        self.img = cv2.imdecode(np.fromfile(source, dtype=np.uint8), cv2.IMREAD_COLOR)
-        self.data_graph = {
-            'width': None,
-            'intensity_width': []
-        }
+        super().__init__(channel, source, output, window)
+        self.source = source
+        self.window = window
+        self.canvas = canvas
+        self.output_canvas = output_canvas
 
-        def get_figures(x1, array_length):
-            if x1 > array_length:
-                return
-            for i in range (x1, array_length):
-                if self.data_graph['intensity_width'][i] > 0:
-                    left_dot = i
-                    for j in range(i, len(self.data_graph['intensity_width'])):
-                        if self.data_graph['intensity_width'][j] == 0:
-                            right_dot = j  - 1
-                            array_figure.append((left_dot, right_dot))
-                            get_figures(right_dot + 1, array_length)
-                            return
-
-        def calc_area(main_array, array_figure):
-            area_array = []
-            figures =[]
-            for i in array_figure:
-                left_dot, right_dot = i
-                figures.append(main_array[left_dot : right_dot])
-            for i in figures:
-                area_array.append(round(trapz(i, dx=1), 1))
-            return area_array
-
-        def filter_area(area):
-            if area > 100:
-                return True
-            else:
-                return False
-
-
-        img = cv2.cvtColor(self.img, cv2.COLOR_BGR2GRAY)
-        img = img[self.y1 : self.y2, self.x1 : self.x2]
-        mask = cv2.inRange(img, self.lower_color, self.upper_color)
-        img = cv2.bitwise_and(img, img, mask=mask)
-
-        self.data_graph['intensity_width'] = np.mean(img, axis=0)
-        self.data_graph['width'] = np.arange(1, np.size(img, 1) + 1, 1)
-        self.data_table = {
-            'x': self.data_graph['width'],
-            'y': self.data_graph['intensity_width']
-        }       
-
-        array_figure = []
-        get_figures(1, len(self.data_graph['intensity_width']))
-        
-        self.area = calc_area(self.data_graph['intensity_width'], array_figure)
-        self.area = filter(filter_area, self.area)
-        self.area = [*self.area]
-
-        area_element = ''
-        count = 1
-        for i in range(0, len(self.area)):
-            area_element += f'Area{count}: {self.area[i]}\n'
-            count += 1
-
-        window.Element('-AREA-').Update(area_element)
-
-        Graph.draw_graph(self, output, self.data_graph['width'],
+    def create_output_data(self):
+        img = cv2.imdecode(np.fromfile(self.source, dtype=np.uint8), cv2.IMREAD_COLOR)
+        img = super().handle_img(img)
+        super().calc_data_graph(img)    
+        super().update_output_area_element()
+        super().draw_graph(self.output, self.data_graph['width'],
                         self.data_graph['intensity_width'],
                         'Distance', 
                         'Signal intensity')
-
-        OutputFile(self.area, window, self.data_table, canvas, output_canvas)
+        OutputFile(self.area, self.window, self.data_table)
 
 #Class for create output 'xlsx' file
 class OutputFile():
-    def __init__(self, output_data, window, table, canvas, output_canvas):
+    def __init__(self, output_data, window, table):
         def create_data_style(name, bold, font_size):
             ns = NamedStyle(name=name)
             ns.font = Font(bold=bold, size=font_size)
@@ -807,13 +763,18 @@ class OutputFile():
                 os.remove('graph.png')
                 os.remove(path)
 
+            canvas_output = window.Element('-OUTPUT_CANVAS-').TKCanvas
             if values['-APP-'] == 'Image':
-                canvas.delete('all')
+                canvas_image = window.Element('-CANVAS_IMAGE-').TKCanvas
+                canvas_image.delete('all')
                 window.Element('-OUTPUT_CANVAS-').TKCanvas.delete('all')
-                ImageEditor(window, canvas, output_canvas)
+                ImageEditorItem = ImageEditor(window, canvas_image, canvas_output)
+                ImageEditorItem.processing_image()
             if values['-APP-'] == 'Video':
-                canvas.delete('all')
-                VideoPlayer(window, canvas, output_canvas)
+                canvas_video = window.Element('-CANVAS_VIDEO-').TKCanvas
+                canvas_video.delete('all')
+                VideoPlayerItem = VideoPlayer(window, self.canvas_video, canvas_output)
+                VideoPlayerItem.processing_video()
         
 if __name__=='__main__':
     App()
