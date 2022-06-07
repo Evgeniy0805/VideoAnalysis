@@ -14,13 +14,33 @@ from openpyxl import Workbook
 from openpyxl.styles import NamedStyle, Font, Border, Side, Alignment
 import os
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import serial
+import serial.tools.list_ports
 
 #Main class of application
 class App:
 
     def __init__(self):
-        button_colors =  (sg.theme_background_color(), sg.theme_background_color())
 #Tab for input and processing video
+        experiment_layout = [
+            [sg.Text('Port:'),      
+            sg.Combo([], size=(50, 5), key='-PORTS_LIST-', auto_size_text=True)],
+            [sg.Button('Open', enable_events=True, key='-OPEN_PORT-'),
+            sg.Button('Read', enable_events=True, key='-READ_PORT-'),
+            sg.Button('Close', enable_events=True, key='-CLOSE_PORT-')],
+            [sg.Text('Amperage: 0 mA', key='-AMPERAGE_VALUE-')],
+            [sg.Text('Voltage, V:', key='-VOLTAGE_VALUE-')],
+            [sg.Text('ch1:'), 
+            sg.Spin(values=[i for i in range(1,120,1)], initial_value=20, key='-BLURE_VID_VALUE-', enable_events=True),
+            sg.Text('ch2:'), 
+            sg.Spin(values=[i for i in range(1,120,1)], initial_value=60, key='-BLURE_VID_VALUE-', enable_events=True),
+            sg.Text('ch3:'), 
+            sg.Spin(values=[i for i in range(1,120,1)], initial_value=80, key='-BLURE_VID_VALUE-', enable_events=True),
+            sg.Text('ch4:'), 
+            sg.Spin(values=[i for i in range(1,120,1)], initial_value=120, key='-BLURE_VID_VALUE-', enable_events=True)],
+            [sg.Canvas(size=(800, 300), key='-CANVAS_CAMERA-', background_color='white', border_width=1)],
+        ]
+
         video_layout = [
             [sg.Input('Browse video', key='-FILEPATH_VIDEO-'), 
             sg.Button('Browse', key='-BROWSE_VIDEO-', border_width=0)],
@@ -93,9 +113,10 @@ class App:
     #Layout for all tabs
         layout = [
             [sg.TabGroup([
-                [sg.Tab('Video', video_layout, element_justification='center'),
-                    sg.Tab('Image', image_layout, element_justification='center'), 
-                    sg.Tab('Output', output_layout, element_justification='center')]
+                [sg.Tab('Experiment', experiment_layout, element_justification='center'),
+                 sg.Tab('Video', video_layout, element_justification='center'),
+                 sg.Tab('Image', image_layout, element_justification='center'), 
+                 sg.Tab('Output', output_layout, element_justification='center')]
                 ], enable_events=True, key='-APP-')],
             [sg.Button('Exit')]]
 
@@ -108,8 +129,94 @@ class App:
 
         self.output_canvas = self.window.Element('-OUTPUT_CANVAS-').TKCanvas
 
-        VideoPlayerItem = VideoPlayer(self.window, self.canvas_video, self.output_canvas)
-        VideoPlayerItem.processing_video()
+        ExperimentItem = Experiment(self.window)
+        ExperimentItem.processing_experiment()
+
+class Experiment:
+
+    def __init__(self, window):
+        self.window = window
+        self.output_data_port = []
+        self.serialInst = {}
+        self.amperage = 0
+        self.voltage = {
+            'ch1': 0,
+            'ch2': 0,
+            'ch3': 0,
+            'ch4': 0
+        }
+
+    def set_serial_inst(self, port):
+        self.serialInst = port
+
+    def close_port(self, port): 
+        port.close()
+
+    def open_port(self):
+        try:
+            serialInst = serial.Serial()
+            serialInst.baudrate = 9600
+            serialInst.port = self.window.Element('-PORTS_LIST-').get().split(' ')[0]
+            serialInst.open()
+            self.set_serial_inst(serialInst)
+        except serial.SerialException as e:
+            sg.popup('Could not open serial port')
+
+    def get_ports_list(self):
+        portsList = []
+        ports = serial.tools.list_ports.comports()
+        for onePort in ports:
+            portsList.append(str(onePort))
+        return portsList
+
+    def update_ports_list(self, portsListElement):
+        portsList = self.get_ports_list()
+        portsListElement.update(values = portsList)
+
+    def print_data_port(self, port):
+        if port.inWaiting():
+            packet = port.readline()
+            packet = int(packet.rstrip().decode('UTF-8'))
+            print(packet)
+            self.output_data_port.append(packet)
+            self.update_amperage_value(self.output_data_port)
+        self.window.write_event_value('-READ_PORT-', '')
+
+    def long_function(self, port):
+        threading.Thread(target=self.print_data_port, args=(port, ), daemon=True).start()
+
+    def update_amperage_value(self, new_data):
+        current_value = new_data[-1]
+        self.window.Element('-AMPERAGE_VALUE-').Update(f'Amperage: {current_value} mA')
+        if self.is_limit_for_recording(current_value, 3000000000):
+            self.close_port(self.serialInst)
+            self.start_recording()
+
+    def start_recording(self):
+        sg.popup_ok('Start recording')
+    
+    def is_limit_for_recording(self, current_value, limit):
+        return current_value >= limit
+
+    def processing_experiment(self):
+        self.update_ports_list(self.window.Element('-PORTS_LIST-'))
+
+        while True:
+            event, values = self.window.Read(timeout=100)
+            if event == 'Exit' or event == sg.WIN_CLOSED:
+                break
+            if event == '-OPEN_PORT-':
+                self.open_port()
+            if event == '-READ_PORT-':
+                self.long_function(self.serialInst)
+            if event == '-CLOSE_PORT-':
+                self.close_port(self.serialInst)
+            if values['-APP-'] == 'Video':
+                VideoPlayerItem = VideoPlayer(self.window, self.window.Element('-CANVAS_VIDEO-'), self.window.Element('-OUTPUT_CANVAS-').TKCanvas)
+                VideoPlayerItem.processing_video()
+            if values['-APP-'] == 'Image':
+                ImageEditorItem = ImageEditor(self.window, self.window.Element('-CANVAS_IMAGE-').TKCanvas, self.window.Element('-OUTPUT_CANVAS-').TKCanvas)
+                ImageEditorItem.processing_image()
 
 #Base class for processing input file
 class FileHandler:
@@ -176,6 +283,7 @@ class VideoPlayer(FileHandler):
             event, values = self.window.Read()
             if event is None or event == 'Exit':
                 break
+
             if values['-APP-'] == 'Image':
                 ImageEditorItem = ImageEditor(self.window, canvas_image, self.output_canvas)
                 ImageEditorItem.processing_image()
@@ -285,7 +393,6 @@ class VideoPlayer(FileHandler):
                     GraphVideoData.create_output_data()
                 else:
                     sg.popup_ok('No channel selected')
-
             self.extended_properties['lower_color'] = int(values['-LOWER-'])
             self.extended_properties['upper_color'] = int(values['-UPPER-'])
             self.extended_properties['blure_value'] = values['-BLURE_VID_VALUE-']
